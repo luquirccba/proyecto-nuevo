@@ -26,9 +26,12 @@ app.use(async (req,res) => {
 
     const upstream = await fetch(target, init);
     res.status(upstream.status);
+
+    let upstreamType = '';
     upstream.headers.forEach((value,key)=>{
       const lower = key.toLowerCase();
-      if (['content-length','content-encoding','transfer-encoding','connection'].includes(lower)) return;
+      if (lower === 'content-type') upstreamType = value;
+      if (['content-length','content-encoding','transfer-encoding','connection','content-type'].includes(lower)) return;
       if (lower === 'location') {
         const publicBase = `${req.protocol}://${req.get('host')}`;
         value = value.replace(EDGE_BASE, publicBase);
@@ -36,8 +39,17 @@ app.use(async (req,res) => {
       }
       res.setHeader(key,value);
     });
+
+    // Supabase Edge may label generated HTML as text/plain at the gateway.
+    // The storefront/admin endpoints are HTML, so force the browser-safe MIME type here.
+    if (req.path === '/' || req.path === '/admin' || upstreamType.includes('text/html')) {
+      res.setHeader('Content-Type','text/html; charset=utf-8');
+    } else if (upstreamType) {
+      res.setHeader('Content-Type', upstreamType);
+    }
+
     const body = Buffer.from(await upstream.arrayBuffer());
-    res.send(body);
+    res.end(body);
   } catch (err) {
     console.error(err);
     res.status(502).type('text/plain').send('No se pudo conectar con el backend de Tuconi\'s.');

@@ -13,7 +13,6 @@ app.use(async (req,res) => {
     const parsed = new URL(req.originalUrl || '/', publicBase);
     let pathname = parsed.pathname || '/';
 
-    // Normalize accidental internal Supabase paths back to public app paths.
     if (pathname.startsWith(EDGE_PATH)) {
       pathname = pathname.slice(EDGE_PATH.length) || '/';
     }
@@ -57,7 +56,6 @@ app.use(async (req,res) => {
       res.setHeader(key,value);
     });
 
-    // IMPORTANT: decide from pathname only; query strings must not affect HTML detection.
     const isHtml = pathname === '/' || pathname === '/admin' || upstreamType.includes('text/html');
 
     if (isHtml) {
@@ -67,6 +65,11 @@ app.use(async (req,res) => {
         .replaceAll('https://ducnpyybicybkkazaugo.supabase.co/functions/v1/tuconis-preventa', publicBase)
         .replaceAll(EDGE_PATH + '/admin', '/admin')
         .replaceAll(EDGE_PATH, '/');
+
+      // The Edge Function builds the admin storefront link from its own internal pathname.
+      // Force that specific navigation to the public Render storefront.
+      body = body.replace(/<a([^>]*?)href=["'][^"']*["']([^>]*?)>\s*Ver tienda\s*<\/a>/i,
+        '<a$1href="/"$2>Ver tienda</a>');
 
       res.status(upstream.status);
       res.type('html');

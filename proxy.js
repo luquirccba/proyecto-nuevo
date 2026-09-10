@@ -13,7 +13,7 @@ const LOGO_SVG = `<svg class="logo" width="220" height="84" viewBox="0 0 380 145
   <text x="190" y="118" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="62" font-weight="900" letter-spacing="1" fill="none" stroke="#d93a3a" stroke-width="5" filter="url(#glow)">TUCONI'S</text>
 </svg>`;
 
-app.get('/health', (_req,res)=>res.json({ok:true,service:'tuconis-render-proxy-v5'}));
+app.get('/health', (_req,res)=>res.json({ok:true,service:'tuconis-render-proxy-v6'}));
 app.get('/theme.css', (_req,res)=>{
   res.type('text/css').setHeader('Cache-Control','no-store');
   res.send(readFileSync(new URL('./theme.css', import.meta.url),'utf8'));
@@ -26,8 +26,6 @@ app.use(async (req,res) => {
     let pathname = parsed.pathname || '/';
     if (pathname.startsWith(EDGE_PATH)) pathname = pathname.slice(EDGE_PATH.length) || '/';
 
-    // Todas las pantallas /order/ pasan por el flujo de comprobantes. Para
-    // transferencias, la compra no se considera finalizada hasta adjuntar uno.
     const isOrderRoute = pathname.startsWith('/order/');
     const orderNumber = isOrderRoute ? pathname.slice('/order/'.length) : '';
     const target = isOrderRoute
@@ -47,6 +45,15 @@ app.use(async (req,res) => {
 
     const upstream = await fetch(target, init);
     const upstreamType = upstream.headers.get('content-type') || '';
+
+    // El checkout por transferencia nunca puede terminar en la pantalla vieja.
+    // Si el backend creó el pedido, obligamos al navegador a pasar por /order/TC-XXXX,
+    // que está conectado al cargador obligatorio de comprobantes.
+    if (req.method === 'POST' && pathname === '/checkout' && upstream.status >= 300 && upstream.status < 400) {
+      const loc = upstream.headers.get('location') || '';
+      const match = loc.match(/\/order\/(TC-\d+)/i);
+      if (match) return res.redirect(303, `/order/${match[1]}`);
+    }
 
     upstream.headers.forEach((value,key)=>{
       const lower = key.toLowerCase();
@@ -76,19 +83,15 @@ app.use(async (req,res) => {
         .replace(/<label>DIRECCIÓN SI CORRESPONDE<\/label>\s*<input[^>]*name=["']delivery_address["'][^>]*>/gi,'');
 
       body = body.replace(/<a([^>]*?)href=["'][^"']*["']([^>]*?)>\s*Ver tienda\s*<\/a>/i,'<a$1href="/"$2>Ver tienda</a>');
-
-      // Logo visible en las pantallas del storefront y checkout.
       body = body.replace(/<img[^>]*class=["'][^"']*\blogo\b[^"']*["'][^>]*>/gi, LOGO_SVG);
       if (!body.includes('aria-label="Club Tuconi\'s"') && body.includes('class="top"') && !body.includes('class="brand"')) {
         body = body.replace(/<div class="top">/i, `<div class="top">${LOGO_SVG}`);
       }
 
-      // Sólo retiro: sin punto de entrega, dirección ni envíos.
       body = body.replace(/<h2>Entrega<\/h2>[\s\S]*?<label>Modalidad<\/label>[\s\S]*?<select name=["']delivery_method["'][^>]*>[\s\S]*?<\/select>/i,
         '<h2>Entrega</h2><input type="hidden" name="delivery_method" value="pickup"><div style="padding:14px 16px;border:1px solid #5b5a58;border-radius:12px;background:#242729"><b>Retiro</b><br><span style="color:#cfc8bd;font-size:13px">Coordinaremos el retiro por WhatsApp.</span></div>');
 
-      // Paleta inspirada directamente en las tres gorras.
-      if (!body.includes('/theme.css')) body = body.replace('</head>','<link rel="stylesheet" href="/theme.css?v=5"></head>');
+      if (!body.includes('/theme.css')) body = body.replace('</head>','<link rel="stylesheet" href="/theme.css?v=6"></head>');
 
       res.status(upstream.status);
       res.setHeader('Content-Type','text/html; charset=utf-8');
@@ -108,4 +111,4 @@ app.use(async (req,res) => {
   }
 });
 
-app.listen(PORT,'0.0.0.0',()=>console.log(`Tuconi's proxy v5 listening on ${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`Tuconi's proxy v6 listening on ${PORT}`));

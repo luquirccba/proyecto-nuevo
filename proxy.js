@@ -19,7 +19,7 @@ function mpNavigationPage(url) {
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${safe}"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Abriendo Mercado Pago…</title></head><body style="background:#222426;color:#eee8df;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0"><main style="text-align:center;padding:24px"><h2>Abriendo Mercado Pago…</h2><p>Si no se abre automáticamente, usá el botón.</p><a href="${safe}" style="display:inline-block;background:#d93a3a;color:white;text-decoration:none;padding:14px 18px;border-radius:10px;font-weight:700">Continuar a Mercado Pago</a></main></body></html>`;
 }
 
-app.get('/health', (_req,res)=>res.json({ok:true,service:'tuconis-render-proxy-v9'}));
+app.get('/health', (_req,res)=>res.json({ok:true,service:'tuconis-render-proxy-v10'}));
 app.get('/theme.css', (_req,res)=>{
   res.type('text/css').setHeader('Cache-Control','no-store');
   res.send(readFileSync(new URL('./theme.css', import.meta.url),'utf8'));
@@ -56,21 +56,19 @@ app.use(async (req,res) => {
       const loc = upstream.headers.get('location') || '';
 
       if (/^https:\/\/(?:www\.|sandbox\.)?mercadopago\.com\.ar\//i.test(loc)) {
-        const sandboxLoc = loc.replace('https://www.mercadopago.com.ar/', 'https://sandbox.mercadopago.com.ar/');
-        console.log('checkout direct MP navigation', sandboxLoc);
+        console.log('checkout direct MP navigation', loc);
         res.status(200);
         res.setHeader('Content-Type','text/html; charset=utf-8');
         res.setHeader('Cache-Control','no-store');
-        return res.send(mpNavigationPage(sandboxLoc));
+        return res.send(mpNavigationPage(loc));
       }
 
       const match = loc.match(/\/order\/(TC-[A-Za-z0-9_-]+)/i);
       if (match) {
         const order = match[1];
         const mp = await fetch(`${MP_CHECKOUT_BASE}/${encodeURIComponent(order)}`, { redirect:'manual' });
-        let mpLoc = mp.headers.get('location') || '';
+        const mpLoc = mp.headers.get('location') || '';
         if (mp.status >= 300 && mp.status < 400 && /^https:\/\/(?:www\.|sandbox\.)?mercadopago\.com\.ar\//i.test(mpLoc)) {
-          mpLoc = mpLoc.replace('https://www.mercadopago.com.ar/', 'https://sandbox.mercadopago.com.ar/');
           console.log('checkout helper MP navigation', mpLoc);
           res.status(200);
           res.setHeader('Content-Type','text/html; charset=utf-8');
@@ -117,7 +115,7 @@ app.use(async (req,res) => {
       body = body.replace(/<h2>Entrega<\/h2>[\s\S]*?<label>Modalidad<\/label>[\s\S]*?<select name=["']delivery_method["'][^>]*>[\s\S]*?<\/select>/i,
         '<h2>Entrega</h2><input type="hidden" name="delivery_method" value="pickup"><div style="padding:14px 16px;border:1px solid #5b5a58;border-radius:12px;background:#242729"><b>Retiro</b><br><span style="color:#cfc8bd;font-size:13px">Coordinaremos el retiro por WhatsApp.</span></div>');
 
-      if (!body.includes('/theme.css')) body = body.replace('</head>','<link rel="stylesheet" href="/theme.css?v=9"></head>');
+      if (!body.includes('/theme.css')) body = body.replace('</head>','<link rel="stylesheet" href="/theme.css?v=10"></head>');
 
       res.status(upstream.status);
       res.setHeader('Content-Type','text/html; charset=utf-8');
@@ -137,4 +135,4 @@ app.use(async (req,res) => {
   }
 });
 
-app.listen(PORT,'0.0.0.0',()=>console.log(`Tuconi's proxy v9 listening on ${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`Tuconi's proxy v10 listening on ${PORT}`));

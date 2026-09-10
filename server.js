@@ -56,7 +56,16 @@ app.use(async (req,res) => {
       res.setHeader(key,value);
     });
 
-    const isHtml = pathname === '/' || pathname === '/admin' || upstreamType.includes('text/html');
+    // Supabase Edge can occasionally return HTML with a generic content type.
+    // Treat every browser-facing app route as HTML explicitly.
+    const isAppHtmlRoute =
+      pathname === '/' ||
+      pathname === '/checkout' ||
+      pathname === '/admin' ||
+      pathname.startsWith('/admin/') ||
+      pathname.startsWith('/order/');
+
+    const isHtml = isAppHtmlRoute || upstreamType.includes('text/html');
 
     if (isHtml) {
       let body = await upstream.text();
@@ -66,8 +75,6 @@ app.use(async (req,res) => {
         .replaceAll(EDGE_PATH + '/admin', '/admin')
         .replaceAll(EDGE_PATH, '/');
 
-      // The Edge Function builds the admin storefront link from its own internal pathname.
-      // Force that specific navigation to the public Render storefront.
       body = body.replace(/<a([^>]*?)href=["'][^"']*["']([^>]*?)>\s*Ver tienda\s*<\/a>/i,
         '<a$1href="/"$2>Ver tienda</a>');
 

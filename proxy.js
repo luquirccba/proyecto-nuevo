@@ -6,7 +6,7 @@ const PORT = Number(process.env.PORT || 10000);
 const EDGE_BASE = process.env.EDGE_BASE || 'https://ducnpyybicybkkazaugo.supabase.co/functions/v1/tuconis-preventa';
 const EDGE_PATH = '/functions/v1/tuconis-preventa';
 const RECEIPTS_BASE = 'https://ducnpyybicybkkazaugo.supabase.co/functions/v1/tuconis-receipts';
-const MP_CHECKOUT_BASE = 'https://ducnpyybicybkkazaugo.supabase.co/functions/v1/mp-checkout';
+const CHECKOUT_V2_BASE = 'https://ducnpyybicybkkazaugo.supabase.co/functions/v1/tuconis-checkout-v2';
 
 const LOGO_SVG = `<svg class="logo" width="220" height="84" viewBox="0 0 380 145" role="img" aria-label="Club Tuconi's" xmlns="http://www.w3.org/2000/svg">
   <defs><filter id="glow"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
@@ -19,7 +19,7 @@ function mpNavigationPage(url) {
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${safe}"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Abriendo Mercado Pago…</title></head><body style="background:#222426;color:#eee8df;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0"><main style="text-align:center;padding:24px"><h2>Abriendo Mercado Pago…</h2><p>Si no se abre automáticamente, usá el botón.</p><a href="${safe}" style="display:inline-block;background:#d93a3a;color:white;text-decoration:none;padding:14px 18px;border-radius:10px;font-weight:700">Continuar a Mercado Pago</a></main></body></html>`;
 }
 
-app.get('/health', (_req,res)=>res.json({ok:true,service:'tuconis-render-proxy-v11'}));
+app.get('/health', (_req,res)=>res.json({ok:true,service:'tuconis-render-proxy-v12'}));
 app.get('/theme.css', (_req,res)=>{
   res.type('text/css').setHeader('Cache-Control','no-store');
   res.send(readFileSync(new URL('./theme.css', import.meta.url),'utf8'));
@@ -36,7 +36,9 @@ app.use(async (req,res) => {
     const orderNumber = isOrderRoute ? pathname.slice('/order/'.length) : '';
     const target = isOrderRoute
       ? `${RECEIPTS_BASE}/${encodeURIComponent(orderNumber)}${parsed.search || ''}`
-      : EDGE_BASE + (pathname === '/' ? (parsed.search || '') : pathname + (parsed.search || ''));
+      : (req.method === 'POST' && pathname === '/checkout')
+        ? CHECKOUT_V2_BASE
+        : EDGE_BASE + (pathname === '/' ? (parsed.search || '') : pathname + (parsed.search || ''));
 
     const headers = new Headers();
     for (const [k,v] of Object.entries(req.headers)) {
@@ -45,6 +47,8 @@ app.use(async (req,res) => {
       if (['host','content-length','connection','accept-encoding'].includes(key)) continue;
       headers.set(k, Array.isArray(v) ? v.join(',') : String(v));
     }
+    headers.set('x-forwarded-host', req.get('host'));
+    headers.set('x-forwarded-proto', req.protocol);
 
     const init = { method:req.method, headers, redirect:'manual' };
     if (!['GET','HEAD'].includes(req.method)) { init.body=req; init.duplex='half'; }
@@ -54,7 +58,6 @@ app.use(async (req,res) => {
 
     if (req.method === 'POST' && pathname === '/checkout' && upstream.status >= 300 && upstream.status < 400) {
       const loc = upstream.headers.get('location') || '';
-
       if (/^https:\/\/(?:www\.|sandbox\.)?mercadopago\.com\.ar\//i.test(loc)) {
         console.log('checkout direct MP navigation', loc);
         res.status(200);
@@ -62,21 +65,7 @@ app.use(async (req,res) => {
         res.setHeader('Cache-Control','no-store');
         return res.send(mpNavigationPage(loc));
       }
-
-      const match = loc.match(/\/order\/(TC-[A-Za-z0-9_-]+)/i);
-      if (match) {
-        const order = match[1];
-        const mp = await fetch(`${MP_CHECKOUT_BASE}/${encodeURIComponent(order)}`, { redirect:'manual' });
-        const mpLoc = mp.headers.get('location') || '';
-        if (mp.status >= 300 && mp.status < 400 && /^https:\/\/(?:www\.|sandbox\.)?mercadopago\.com\.ar\//i.test(mpLoc)) {
-          console.log('checkout helper MP navigation', mpLoc);
-          res.status(200);
-          res.setHeader('Content-Type','text/html; charset=utf-8');
-          res.setHeader('Cache-Control','no-store');
-          return res.send(mpNavigationPage(mpLoc));
-        }
-        return res.redirect(303, `/order/${encodeURIComponent(order)}`);
-      }
+      return res.redirect(303, loc.replace('https://tuconis-preventa.onrender.com', publicBase));
     }
 
     upstream.headers.forEach((value,key)=>{
@@ -86,6 +75,7 @@ app.use(async (req,res) => {
         value = value
           .replaceAll(EDGE_BASE,publicBase)
           .replaceAll(RECEIPTS_BASE,`${publicBase}/order`)
+          .replaceAll('https://tuconis-preventa.onrender.com',publicBase)
           .replaceAll(EDGE_PATH,'');
       }
       res.setHeader(key,value);
@@ -99,6 +89,7 @@ app.use(async (req,res) => {
         .replaceAll(EDGE_BASE,publicBase)
         .replaceAll(RECEIPTS_BASE,`${publicBase}/order`)
         .replaceAll('https://ducnpyybicybkkazaugo.supabase.co/functions/v1/tuconis-preventa',publicBase)
+        .replaceAll('https://tuconis-preventa.onrender.com',publicBase)
         .replaceAll(EDGE_PATH + '/admin','/admin')
         .replaceAll(EDGE_PATH,'/')
         .replaceAll('Retiro / punto de entrega','Retiro')
@@ -106,7 +97,7 @@ app.use(async (req,res) => {
         .replace(/<label>Dirección si corresponde<\/label>\s*<input[^>]*name=["']delivery_address["'][^>]*>/gi,'')
         .replace(/<label>DIRECCIÓN SI CORRESPONDE<\/label>\s*<input[^>]*name=["']delivery_address["'][^>]*>/gi,'');
 
-      body = body.replace(/<a([^>]*?)href=["'][^"']*["']([^>]*?)>\s*Ver tienda\s*<\/a>/i,'<a$1href="/"$2>Ver tienda</a>');
+      body = body.replace(/<a([^>]*?)href=["'][^"']*["']([^>]*?)>\s*(?:←\s*)?(?:Tienda|Ver tienda)\s*<\/a>/i,'<a$1href="/"$2>⌂ Home</a>');
       body = body.replace(/<img[^>]*class=["'][^"']*\blogo\b[^"']*["'][^>]*>/gi, LOGO_SVG);
       const alreadyHasLogo = /class=["'][^"']*\blogo\b[^"']*["']/i.test(body) || body.includes('aria-label="Club Tuconi\'s"');
       if (!alreadyHasLogo && body.includes('class="top"') && !body.includes('class="brand"')) {
@@ -116,7 +107,23 @@ app.use(async (req,res) => {
       body = body.replace(/<h2>Entrega<\/h2>[\s\S]*?<label>Modalidad<\/label>[\s\S]*?<select name=["']delivery_method["'][^>]*>[\s\S]*?<\/select>/i,
         '<h2>Entrega</h2><input type="hidden" name="delivery_method" value="pickup"><div style="padding:14px 16px;border:1px solid #5b5a58;border-radius:12px;background:#242729"><b>Retiro</b><br><span style="color:#cfc8bd;font-size:13px">Coordinaremos el retiro por WhatsApp.</span></div>');
 
-      if (!body.includes('/theme.css')) body = body.replace('</head>','<link rel="stylesheet" href="/theme.css?v=11"></head>');
+      if (pathname === '/') {
+        body = body
+          .replace(/<div class=["']price["']>[\s\S]*?<\/div>/i,'')
+          .replace(/<div class=["']chip["'][^>]*>\s*Después:[\s\S]*?<\/div>/i,'')
+          .replace(/<section class=["']products["']>/i,'<section class="products home-carousel">');
+      }
+
+      if (pathname === '/checkout' && req.method === 'GET') {
+        body = body.replace(/<div class=["']card["']>\s*<b style=["'][^"']*["']>[^<]+<\/b>\s*por unidad\s*(<button[\s\S]*?<\/button>)\s*<\/div>/i,
+          `<div class="card"><h2>Precios</h2><div class="checkout-pricing"><div><span>Preventa · transferencia</span><b>$ 30.000</b></div><div><span>Preventa · Mercado Pago</span><b>$ 32.500</b></div><div><span>Venta general · cualquier medio</span><b>$ 33.500</b></div></div>$1</div>`);
+      }
+
+      if (pathname !== '/' && !body.includes('class="home-float"')) {
+        body = body.replace('</body>','<a class="home-float" href="/">⌂ Home</a></body>');
+      }
+
+      if (!body.includes('/theme.css')) body = body.replace('</head>','<link rel="stylesheet" href="/theme.css?v=12"></head>');
 
       res.status(upstream.status);
       res.setHeader('Content-Type','text/html; charset=utf-8');
@@ -136,4 +143,4 @@ app.use(async (req,res) => {
   }
 });
 
-app.listen(PORT,'0.0.0.0',()=>console.log(`Tuconi's proxy v11 listening on ${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`Tuconi's proxy v12 listening on ${PORT}`));

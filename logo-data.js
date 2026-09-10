@@ -1,0 +1,1 @@
+export const LOGO_PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAlgAAADX...';

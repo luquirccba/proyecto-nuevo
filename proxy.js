@@ -14,7 +14,12 @@ const LOGO_SVG = `<svg class="logo" width="220" height="84" viewBox="0 0 380 145
   <text x="190" y="118" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="62" font-weight="900" letter-spacing="1" fill="none" stroke="#d93a3a" stroke-width="5" filter="url(#glow)">TUCONI'S</text>
 </svg>`;
 
-app.get('/health', (_req,res)=>res.json({ok:true,service:'tuconis-render-proxy-v8'}));
+function mpNavigationPage(url) {
+  const safe = String(url).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${safe}"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Abriendo Mercado Pago…</title></head><body style="background:#222426;color:#eee8df;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0"><main style="text-align:center;padding:24px"><h2>Abriendo Mercado Pago…</h2><p>Si no se abre automáticamente, usá el botón.</p><a href="${safe}" style="display:inline-block;background:#d93a3a;color:white;text-decoration:none;padding:14px 18px;border-radius:10px;font-weight:700">Continuar a Mercado Pago</a></main></body></html>`;
+}
+
+app.get('/health', (_req,res)=>res.json({ok:true,service:'tuconis-render-proxy-v9'}));
 app.get('/theme.css', (_req,res)=>{
   res.type('text/css').setHeader('Cache-Control','no-store');
   res.send(readFileSync(new URL('./theme.css', import.meta.url),'utf8'));
@@ -47,27 +52,30 @@ app.use(async (req,res) => {
     const upstream = await fetch(target, init);
     const upstreamType = upstream.headers.get('content-type') || '';
 
-    // Checkout: handle redirects explicitly before HTML proxying.
     if (req.method === 'POST' && pathname === '/checkout' && upstream.status >= 300 && upstream.status < 400) {
       const loc = upstream.headers.get('location') || '';
 
-      // If the main backend already created the MP preference, forward immediately.
       if (/^https:\/\/(?:www\.|sandbox\.)?mercadopago\.com\.ar\//i.test(loc)) {
         const sandboxLoc = loc.replace('https://www.mercadopago.com.ar/', 'https://sandbox.mercadopago.com.ar/');
-        console.log('checkout direct MP redirect', sandboxLoc);
-        return res.redirect(303, sandboxLoc);
+        console.log('checkout direct MP navigation', sandboxLoc);
+        res.status(200);
+        res.setHeader('Content-Type','text/html; charset=utf-8');
+        res.setHeader('Cache-Control','no-store');
+        return res.send(mpNavigationPage(sandboxLoc));
       }
 
-      // Otherwise it returned /order/TC-XXXX. Try the dedicated MP checkout helper;
-      // it only accepts Mercado Pago orders. Transfers fall back to receipt upload.
       const match = loc.match(/\/order\/(TC-[A-Za-z0-9_-]+)/i);
       if (match) {
         const order = match[1];
         const mp = await fetch(`${MP_CHECKOUT_BASE}/${encodeURIComponent(order)}`, { redirect:'manual' });
-        const mpLoc = mp.headers.get('location') || '';
+        let mpLoc = mp.headers.get('location') || '';
         if (mp.status >= 300 && mp.status < 400 && /^https:\/\/(?:www\.|sandbox\.)?mercadopago\.com\.ar\//i.test(mpLoc)) {
-          console.log('checkout helper MP redirect', mpLoc);
-          return res.redirect(303, mpLoc);
+          mpLoc = mpLoc.replace('https://www.mercadopago.com.ar/', 'https://sandbox.mercadopago.com.ar/');
+          console.log('checkout helper MP navigation', mpLoc);
+          res.status(200);
+          res.setHeader('Content-Type','text/html; charset=utf-8');
+          res.setHeader('Cache-Control','no-store');
+          return res.send(mpNavigationPage(mpLoc));
         }
         return res.redirect(303, `/order/${encodeURIComponent(order)}`);
       }
@@ -109,7 +117,7 @@ app.use(async (req,res) => {
       body = body.replace(/<h2>Entrega<\/h2>[\s\S]*?<label>Modalidad<\/label>[\s\S]*?<select name=["']delivery_method["'][^>]*>[\s\S]*?<\/select>/i,
         '<h2>Entrega</h2><input type="hidden" name="delivery_method" value="pickup"><div style="padding:14px 16px;border:1px solid #5b5a58;border-radius:12px;background:#242729"><b>Retiro</b><br><span style="color:#cfc8bd;font-size:13px">Coordinaremos el retiro por WhatsApp.</span></div>');
 
-      if (!body.includes('/theme.css')) body = body.replace('</head>','<link rel="stylesheet" href="/theme.css?v=8"></head>');
+      if (!body.includes('/theme.css')) body = body.replace('</head>','<link rel="stylesheet" href="/theme.css?v=9"></head>');
 
       res.status(upstream.status);
       res.setHeader('Content-Type','text/html; charset=utf-8');
@@ -129,4 +137,4 @@ app.use(async (req,res) => {
   }
 });
 
-app.listen(PORT,'0.0.0.0',()=>console.log(`Tuconi's proxy v8 listening on ${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`Tuconi's proxy v9 listening on ${PORT}`));

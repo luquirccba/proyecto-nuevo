@@ -1,17 +1,22 @@
 import express from 'express';
+import { readFileSync } from 'node:fs';
 
 const app = express();
 const PORT = Number(process.env.PORT || 10000);
 const EDGE_BASE = process.env.EDGE_BASE || 'https://ducnpyybicybkkazaugo.supabase.co/functions/v1/tuconis-origin';
 const RECEIPTS_BASE = 'https://ducnpyybicybkkazaugo.supabase.co/functions/v1/tuconis-receipts';
 const CHECKOUT_V2_BASE = 'https://ducnpyybicybkkazaugo.supabase.co/functions/v1/tuconis-checkout-v2';
+const NEON = readFileSync(new URL('./assets/logo-neon.webp', import.meta.url));
+const WATERMARK = readFileSync(new URL('./assets/logo-watermark.webp', import.meta.url));
 
 function mpNavigationPage(url) {
   const safe=String(url).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${safe}"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Abriendo Mercado Pago…</title></head><body style="background:#222426;color:#eee8df;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0"><main style="text-align:center;padding:24px"><h2>Abriendo Mercado Pago…</h2><p>Si no se abre automáticamente, usá el botón.</p><a href="${safe}" style="display:inline-block;background:#d93a3a;color:white;text-decoration:none;padding:14px 18px;border-radius:10px;font-weight:700">Continuar a Mercado Pago</a></main></body></html>`;
 }
 
-app.get('/health',(_req,res)=>res.json({ok:true,service:'tuconis-render-proxy-v22',branding:'origin-assets'}));
+app.get('/health',(_req,res)=>res.json({ok:true,service:'tuconis-render-proxy-v23',branding:'render-static'}));
+app.get('/brand-logo.webp',(_req,res)=>{res.set({'Content-Type':'image/webp','Cache-Control':'no-store','Content-Length':String(NEON.length)});res.end(NEON);});
+app.get('/brand-watermark.webp',(_req,res)=>{res.set({'Content-Type':'image/webp','Cache-Control':'no-store','Content-Length':String(WATERMARK.length)});res.end(WATERMARK);});
 
 app.use(async(req,res)=>{
  try{
@@ -30,6 +35,9 @@ app.use(async(req,res)=>{
   upstream.headers.forEach((value,key)=>{const lower=key.toLowerCase();if(['content-length','content-encoding','transfer-encoding','connection','content-type','content-security-policy','content-security-policy-report-only','x-content-type-options'].includes(lower))return;if(lower==='location')value=value.replaceAll(EDGE_BASE,publicBase).replaceAll(RECEIPTS_BASE,`${publicBase}/order`).replaceAll('https://tuconis-preventa.onrender.com',publicBase);res.setHeader(key,value);});
   const isHtml=type.includes('text/html')||pathname==='/'||pathname==='/checkout'||pathname==='/admin'||pathname.startsWith('/admin/')||pathname.startsWith('/order/');
   if(isHtml){let body=await upstream.text();body=body.replaceAll(EDGE_BASE,publicBase).replaceAll('https://ducnpyybicybkkazaugo.supabase.co/functions/v1/tuconis-preventa',publicBase).replaceAll('https://tuconis-preventa.onrender.com',publicBase).replaceAll('Retiro / punto de entrega','Retiro').replace(/<option value=["']shipping["']>Envío<\/option>/gi,'').replace(/<label>Dirección si corresponde<\/label>\s*<input[^>]*name=["']delivery_address["'][^>]*>/gi,'');
+   body=body.replace(/<img([^>]*?)class=["']logo["']([^>]*?)src=["'][^"']*["']([^>]*)>/gi,'<img$1class="logo"$2src="/brand-logo.webp?v=23"$3>');
+   const brand='<style id="render-brand">body{position:relative!important;isolation:isolate!important}body::before{content:""!important;position:fixed!important;left:-25vw!important;top:-25vh!important;width:150vw!important;height:150vh!important;pointer-events:none!important;z-index:0!important;opacity:.13!important;background-image:url("/brand-watermark.webp?v=23")!important;background-repeat:repeat!important;background-position:center!important;background-size:360px auto!important;transform:rotate(-20deg)!important;transform-origin:center!important}body>*{position:relative!important;z-index:1!important}.logo{display:block!important;width:min(300px,70vw)!important;max-width:300px!important;max-height:125px!important;height:auto!important;object-fit:contain!important;visibility:visible!important;opacity:1!important}@media(max-width:760px){body::before{background-size:280px auto!important;opacity:.12!important}.logo{width:min(270px,78vw)!important;max-height:110px!important}}</style>';
+   body=body.replace('</head>',brand+'</head>');
    body=body.replace(/<a([^>]*?)href=["'][^"']*["']([^>]*?)>\s*(?:←\s*)?(?:Tienda|Ver tienda)\s*<\/a>/i,'<a$1href="/"$2>⌂ Home</a>');
    body=body.replace(/<h2>Entrega<\/h2>[\s\S]*?<label>Modalidad<\/label>[\s\S]*?<select name=["']delivery_method["'][^>]*>[\s\S]*?<\/select>/i,'<h2>Entrega</h2><input type="hidden" name="delivery_method" value="pickup"><div style="padding:14px 16px;border:1px solid #5b5a58;border-radius:12px;background:#242729"><b>Retiro</b><br><span style="color:#cfc8bd;font-size:13px">Coordinaremos el retiro por WhatsApp.</span></div>');
    if(pathname==='/')body=body.replace(/<div class=["']price["']>[\s\S]*?<\/div>/i,'').replace(/<div class=["']chip["'][^>]*>\s*Después:[\s\S]*?<\/div>/i,'').replace(/<section class=["']products["']>/i,'<section class="products home-carousel">');
@@ -38,4 +46,4 @@ app.use(async(req,res)=>{
   res.status(upstream.status);if(type)res.setHeader('Content-Type',type);res.setHeader('Cache-Control','no-store');return res.end(Buffer.from(await upstream.arrayBuffer()));
  }catch(err){console.error(err);res.status(502).type('text/plain').send("No se pudo conectar con el backend de Tuconi's.");}
 });
-app.listen(PORT,'0.0.0.0',()=>console.log(`Tuconi's proxy v22 listening on ${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`Tuconi's proxy v23 listening on ${PORT}`));

@@ -1,12 +1,9 @@
 html,body{min-height:100%;background-color:#222426!important}
-body{position:relative!important;isolation:isolate!important}
-body::before{content:""!important;display:block!important;position:fixed!important;left:-25vw!important;top:-25vh!important;width:150vw!important;height:150vh!important;z-index:0!important;pointer-events:none!important;opacity:.14!important;background-image:url('/brand-watermark.webp?v=5')!important;background-repeat:repeat!important;background-size:360px auto!important;background-position:center!important;transform:rotate(-20deg)!important;transform-origin:center!important}
-body>*{position:relative!important;z-index:1!important}
-.top{position:relative!important;z-index:3!important;overflow:visible!important;min-height:190px!important;display:flex!important;align-items:center!important;justify-content:center!important;flex-wrap:wrap!important;padding:18px 24px!important}
-.tuconis-logo-slot{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;width:min(360px,70vw)!important;z-index:20!important;display:flex!important;align-items:center!important;justify-content:center!important;pointer-events:none!important}
-.tuconis-brand-logo{display:block!important;width:100%!important;height:auto!important;max-width:360px!important;max-height:150px!important;object-fit:contain!important;opacity:1!important;visibility:visible!important;filter:none!important}
-.top::before{content:none!important;display:none!important}
-.top>.brand-logo,.logo.brand-logo{display:none!important}
-.top .brand,.top .logo-wrap{display:flex!important;align-items:center!important;justify-content:center!important}
-.card,.product,.feature,.stat,.wrap,.container,main,header,footer{position:relative!important;z-index:2!important}
-@media(max-width:760px){.top{min-height:155px!important;padding:10px 18px!important}.tuconis-logo-slot{width:min(300px,78vw)!important}.tuconis-brand-logo{max-width:300px!important;max-height:125px!important}body::before{background-size:280px auto!important;opacity:.13!important}}
+body{position:relative!important}
+body::after{content:""!important;display:block!important;position:fixed!important;inset:-25%!important;z-index:1!important;pointer-events:none!important;opacity:.18!important;background-image:url('/brand-watermark.webp?v=6')!important;background-repeat:repeat!important;background-size:340px auto!important;background-position:center!important;transform:rotate(-20deg)!important;transform-origin:center!important}
+body>*,main,header,footer,.wrap,.container,.card,.product,.feature,.stat{position:relative!important;z-index:2!important}
+.top{position:relative!important;z-index:4!important;overflow:visible!important;min-height:190px!important;display:flex!important;align-items:center!important;justify-content:center!important;flex-wrap:wrap!important;padding:18px 24px!important}
+.tuconis-logo-slot{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;width:min(380px,72vw)!important;height:155px!important;z-index:50!important;display:flex!important;align-items:center!important;justify-content:center!important;pointer-events:none!important}
+.tuconis-brand-logo{display:block!important;position:relative!important;z-index:51!important;width:100%!important;height:100%!important;max-width:380px!important;max-height:155px!important;object-fit:contain!important;opacity:1!important;visibility:visible!important;filter:none!important}
+.top::before{content:none!important;display:none!important}.top>.brand-logo,.logo.brand-logo{display:none!important}
+@media(max-width:760px){.top{min-height:155px!important;padding:10px 18px!important}.tuconis-logo-slot{width:min(310px,80vw)!important;height:125px!important}.tuconis-brand-logo{max-width:310px!important;max-height:125px!important}body::after{background-size:270px auto!important;opacity:.17!important}}

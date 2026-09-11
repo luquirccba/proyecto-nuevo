@@ -4,6 +4,6 @@
   "private": true,
   "type": "module",
   "engines": {"node": ">=20"},
-  "scripts": {"start":"node proxy.js"},
+  "scripts": {"start":"node proxy-v29.js"},
   "dependencies": {"express":"^4.21.1"}
 }

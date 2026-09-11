@@ -9,14 +9,14 @@ const RECEIPTS_BASE = 'https://ducnpyybicybkkazaugo.supabase.co/functions/v1/tuc
 const CHECKOUT_V2_BASE = 'https://ducnpyybicybkkazaugo.supabase.co/functions/v1/tuconis-checkout-v2';
 const NEON_BUFFER = readFileSync(new URL('./assets/logo-neon.webp', import.meta.url));
 const WATERMARK_BUFFER = readFileSync(new URL('./assets/logo-watermark.webp', import.meta.url));
-const LOGO_IMG = `<img class="tuconis-brand-logo" alt="Club Tuconi's" src="/brand-logo.webp?v=4">`;
+const LOGO_IMG = `<img class="tuconis-brand-logo" alt="Club Tuconi's" src="/brand-logo.webp?v=6">`;
 
 function mpNavigationPage(url) {
   const safe = String(url).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${safe}"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Abriendo Mercado Pago…</title></head><body style="background:#222426;color:#eee8df;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0"><main style="text-align:center;padding:24px"><h2>Abriendo Mercado Pago…</h2><p>Si no se abre automáticamente, usá el botón.</p><a href="${safe}" style="display:inline-block;background:#d93a3a;color:white;text-decoration:none;padding:14px 18px;border-radius:10px;font-weight:700">Continuar a Mercado Pago</a></main></body></html>`;
 }
 
-app.get('/health', (_req,res) => res.json({ok:true,service:'tuconis-render-proxy-v17'}));
+app.get('/health', (_req,res) => res.json({ok:true,service:'tuconis-render-proxy-v18'}));
 for (const path of ['/brand-logo.webp','/assets/logo-neon.webp']) app.get(path, (_req,res) => { res.type('image/webp'); res.setHeader('Cache-Control','no-store'); res.send(NEON_BUFFER); });
 for (const path of ['/brand-watermark.webp','/assets/logo-watermark.webp']) app.get(path, (_req,res) => { res.type('image/webp'); res.setHeader('Cache-Control','no-store'); res.send(WATERMARK_BUFFER); });
 app.get('/theme.css', (_req,res) => { res.type('text/css').setHeader('Cache-Control','no-store'); res.send(readFileSync(new URL('./theme.css', import.meta.url),'utf8')); });
@@ -49,11 +49,11 @@ app.use(async (req,res) => {
       if(pathname==='/')body=body.replace(/<div class=["']price["']>[\s\S]*?<\/div>/i,'').replace(/<div class=["']chip["'][^>]*>\s*Después:[\s\S]*?<\/div>/i,'').replace(/<section class=["']products["']>/i,'<section class="products home-carousel">');
       if(pathname==='/checkout'&&req.method==='GET')body=body.replace(/>Negra</gi,'>GRIS/NEGRA<').replace(/>NEGRA</g,'>GRIS/NEGRA<').replace(/<div class=["']card["']>\s*<b style=["'][^"']*["']>[^<]+<\/b>\s*por unidad\s*(<button[\s\S]*?<\/button>)\s*<\/div>/i,`<div class="card"><h2>Precios</h2><div class="checkout-pricing"><div><span>Preventa · transferencia</span><b>$ 30.000</b></div><div><span>Preventa · Mercado Pago</span><b>$ 32.500</b></div><div><span>Venta general · cualquier medio</span><b>$ 33.500</b></div></div>$1</div>`);
       const hasHomeLink=/<a[^>]*href=["']\/["'][^>]*>\s*(?:⌂\s*)?Home\s*<\/a>/i.test(body);if(pathname!=='/'&&!hasHomeLink&&!body.includes('class="home-float"'))body=body.replace('</body>','<a class="home-float" href="/">⌂ Home</a></body>');
-      body=body.replace(/\/theme\.css\?v=\d+/g,'/theme.css?v=17').replace(/\/brand-overrides\.css\?v=\d+/g,'/brand-overrides.css?v=4');
-      if(!body.includes('/theme.css'))body=body.replace('</head>','<link rel="stylesheet" href="/theme.css?v=17"></head>');if(!body.includes('/brand-overrides.css'))body=body.replace('</head>','<link rel="stylesheet" href="/brand-overrides.css?v=4"></head>');
+      body=body.replace(/\/theme\.css\?v=\d+/g,'/theme.css?v=18').replace(/\/brand-overrides\.css\?v=\d+/g,'/brand-overrides.css?v=6');
+      if(!body.includes('/theme.css'))body=body.replace('</head>','<link rel="stylesheet" href="/theme.css?v=18"></head>');if(!body.includes('/brand-overrides.css'))body=body.replace('</head>','<link rel="stylesheet" href="/brand-overrides.css?v=6"></head>');
       res.status(upstream.status);res.setHeader('Content-Type','text/html; charset=utf-8');res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');res.setHeader('Pragma','no-cache');res.setHeader('Expires','0');res.setHeader('Content-Security-Policy',"default-src 'self' https: data:; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");return res.send(body);
     }
     res.status(upstream.status);if(upstreamType)res.setHeader('Content-Type',upstreamType);return res.end(Buffer.from(await upstream.arrayBuffer()));
   }catch(err){console.error(err);res.status(502).type('text/plain').send("No se pudo conectar con el backend de Tuconi's.");}
 });
-app.listen(PORT,'0.0.0.0',()=>console.log(`Tuconi's proxy v17 listening on ${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`Tuconi's proxy v18 listening on ${PORT}`));

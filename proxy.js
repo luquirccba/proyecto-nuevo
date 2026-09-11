@@ -11,7 +11,7 @@ function mpNavigationPage(url) {
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${safe}"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Abriendo Mercado Pago…</title></head><body style="background:#222426;color:#eee8df;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0"><main style="text-align:center;padding:24px"><h2>Abriendo Mercado Pago…</h2><p>Si no se abre automáticamente, usá el botón.</p><a href="${safe}" style="display:inline-block;background:#d93a3a;color:white;text-decoration:none;padding:14px 18px;border-radius:10px;font-weight:700">Continuar a Mercado Pago</a></main></body></html>`;
 }
 
-app.get('/health',(_req,res)=>res.json({ok:true,service:'tuconis-render-proxy-v21',branding:'origin'}));
+app.get('/health',(_req,res)=>res.json({ok:true,service:'tuconis-render-proxy-v22',branding:'origin-assets'}));
 
 app.use(async(req,res)=>{
  try{
@@ -35,7 +35,7 @@ app.use(async(req,res)=>{
    if(pathname==='/')body=body.replace(/<div class=["']price["']>[\s\S]*?<\/div>/i,'').replace(/<div class=["']chip["'][^>]*>\s*Después:[\s\S]*?<\/div>/i,'').replace(/<section class=["']products["']>/i,'<section class="products home-carousel">');
    if(pathname==='/checkout'&&req.method==='GET')body=body.replace(/>Negra</gi,'>GRIS/NEGRA<').replace(/>NEGRA</g,'>GRIS/NEGRA<');
    res.status(upstream.status);res.setHeader('Content-Type','text/html; charset=utf-8');res.setHeader('Cache-Control','no-store, no-cache, must-revalidate');res.setHeader('Content-Security-Policy',"default-src 'self' https: data:; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");return res.send(body);}
-  res.status(upstream.status);if(type)res.setHeader('Content-Type',type);return res.end(Buffer.from(await upstream.arrayBuffer()));
+  res.status(upstream.status);if(type)res.setHeader('Content-Type',type);res.setHeader('Cache-Control','no-store');return res.end(Buffer.from(await upstream.arrayBuffer()));
  }catch(err){console.error(err);res.status(502).type('text/plain').send("No se pudo conectar con el backend de Tuconi's.");}
 });
-app.listen(PORT,'0.0.0.0',()=>console.log(`Tuconi's proxy v21 listening on ${PORT}`));
+app.listen(PORT,'0.0.0.0',()=>console.log(`Tuconi's proxy v22 listening on ${PORT}`));
